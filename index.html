@@ -21,46 +21,35 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* PRINT STYLESHEET - FIXES BLANK PRINT PREVIEW */
+    /* PRINT FIX: Hide the screen app entirely and reveal dedicated print markup */
     @media print {
-      /* Hide all UI elements except the active printable ticket container */
-      body * {
-        visibility: hidden !important;
+      #root {
+        display: none !important;
       }
-
-      /* Isolate the ticket container for printing */
-      #printable-ticket, #printable-ticket * {
-        visibility: visible !important;
-      }
-
-      /* Position ticket at the absolute top-left of the paper */
-      #printable-ticket {
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
+      #print-mount {
+        display: block !important;
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
         color: #000000 !important;
-        box-shadow: none !important;
-        border: none !important;
       }
-
-      /* Hide modal controls and close buttons from print output */
-      .no-print {
-        display: none !important;
-      }
-
       @page {
         size: A4 portrait;
-        margin: 15mm;
+        margin: 12mm;
+      }
+    }
+
+    @media screen {
+      #print-mount {
+        display: none !important;
       }
     }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
   <div id="root"></div>
+  <div id="print-mount"></div>
 
   <script type="text/babel">
     const { useState } = React;
@@ -68,14 +57,152 @@
     function BatchCraftApp() {
       const [showTicket, setShowTicket] = useState(false);
 
+      // Editable Ticket State
+      const [ticketData, setTicketData] = useState({
+        customer: "BuildCo Construction Ltd",
+        address: "124 Main Street, Commercial Zone",
+        dispatchTime: "13:22",
+        truckNo: "TR-14",
+        driver: "J. Doe",
+        slump: "100 mm",
+        ticketNo: "DN-84920",
+        date: "01/09/2026"
+      });
+
+      const handleChange = (e) => {
+        const { name, value } = e.target;
+        setTicketData(prev => ({ ...prev, [name]: value }));
+      };
+
       const handlePrint = () => {
+        // Render print element directly into the isolated body container
+        const mount = document.getElementById('print-mount');
+        mount.innerHTML = `
+          <div style="font-family: 'Inter', sans-serif; color: #000; padding: 10px;">
+            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 20px;">
+              <div>
+                <h2 style="font-size: 22px; font-weight: 900; margin: 0; text-transform: uppercase;">BatchCraft Concrete Ltd.</h2>
+                <p style="font-size: 11px; margin: 2px 0 0 0; color: #444;">Central Batching Plant #04 • Tel: (011) 555-0192</p>
+                <p style="font-size: 11px; margin: 0; color: #666;">Quality Assured Ready-Mix Concrete</p>
+              </div>
+              <div style="text-align: right;">
+                <h3 style="font-size: 16px; font-weight: 800; margin: 0;">DELIVERY NOTE</h3>
+                <p style="font-size: 11px; font-family: monospace; font-weight: 700; margin: 2px 0 0 0;">TICKET #: ${ticketData.ticketNo}</p>
+                <p style="font-size: 11px; margin: 0; color: #444;">Date: ${ticketData.date}</p>
+              </div>
+            </div>
+
+            <div style="border: 1px solid #ccc; border-radius: 6px; padding: 12px; margin-bottom: 20px; font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background-color: #f9f9f9;">
+              <div>
+                <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Customer / Contractor</p>
+                <p style="font-weight: bold; font-size: 13px; margin: 2px 0 8px 0;">${ticketData.customer}</p>
+                <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Delivery Location</p>
+                <p style="font-weight: 500; margin: 2px 0 0 0;">${ticketData.address}</p>
+              </div>
+              <div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                  <div>
+                    <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Dispatch Time</p>
+                    <p style="font-weight: 600; margin: 2px 0 0 0;">${ticketData.dispatchTime}</p>
+                  </div>
+                  <div>
+                    <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Truck No</p>
+                    <p style="font-weight: 600; margin: 2px 0 0 0;">${ticketData.truckNo}</p>
+                  </div>
+                  <div>
+                    <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Driver</p>
+                    <p style="font-weight: 600; margin: 2px 0 0 0;">${ticketData.driver}</p>
+                  </div>
+                  <div>
+                    <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Target Slump</p>
+                    <p style="font-weight: 600; margin: 2px 0 0 0;">${ticketData.slump}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <h4 style="font-size: 11px; font-weight: bold; margin: 0 0 8px 0; text-transform: uppercase;">Load & Mix Details</h4>
+              <table style="width: 100%; font-size: 11px; border-collapse: collapse; text-align: left;">
+                <thead>
+                  <tr style="border-bottom: 1px solid #aaa; color: #555;">
+                    <th style="padding: 6px 0;">Mix Design</th>
+                    <th style="padding: 6px 0; text-align: center;">Load Volume</th>
+                    <th style="padding: 6px 0; text-align: center;">Est. Discharge Temp</th>
+                    <th style="padding: 6px 0; text-align: right;">Unit Density</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid #ddd; font-weight: 600;">
+                    <td style="padding: 8px 0;">30 MPa Standard Structural</td>
+                    <td style="padding: 8px 0; text-align: center; font-size: 12px; font-weight: bold;">6 m³</td>
+                    <td style="padding: 8px 0; text-align: center;">25.2 °C</td>
+                    <td style="padding: 8px 0; text-align: right; font-family: monospace;">2398 kg/m³</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-bottom: 30px;">
+              <h4 style="font-size: 11px; font-weight: bold; margin: 0 0 8px 0; text-transform: uppercase;">Batched Scale Weights (Actual Target)</h4>
+              <table style="width: 100%; font-size: 11px; border-collapse: collapse; text-align: left;">
+                <thead>
+                  <tr style="border-bottom: 2px solid #000; color: #333;">
+                    <th style="padding: 6px 0;">Material</th>
+                    <th style="padding: 6px 0; text-align: right;">Design Dry (kg)</th>
+                    <th style="padding: 6px 0; text-align: right;">Moisture Adjustment</th>
+                    <th style="padding: 6px 0; text-align: right;">Batched Scale Weight</th>
+                  </tr>
+                </thead>
+                <tbody style="font-family: monospace;">
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 6px 0; font-family: sans-serif; font-weight: 500;">Cement Powder</td>
+                    <td style="padding: 6px 0; text-align: right; color: #555;">2100</td>
+                    <td style="padding: 6px 0; text-align: right; color: #555;">0 %</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: bold;">2100 kg</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 6px 0; font-family: sans-serif; font-weight: 500;">Fine Aggregate (Sand)</td>
+                    <td style="padding: 6px 0; text-align: right; color: #555;">4920</td>
+                    <td style="padding: 6px 0; text-align: right; color: #555;">+4.5%</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: bold;">5141 kg</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 6px 0; font-family: sans-serif; font-weight: 500;">Coarse Aggregate (Stone)</td>
+                    <td style="padding: 6px 0; text-align: right; color: #555;">6240</td>
+                    <td style="padding: 6px 0; text-align: right; color: #555;">+1.8%</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: bold;">6352 kg</td>
+                  </tr>
+                  <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 6px 0; font-family: sans-serif; font-weight: 500;">Net Batch Water</td>
+                    <td style="padding: 6px 0; text-align: right; color: #555;">1050</td>
+                    <td style="padding: 6px 0; text-align: right; color: #555;">-253 L (Free H₂O)</td>
+                    <td style="padding: 6px 0; text-align: right; font-weight: bold;">797 L</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 11px;">
+              <div>
+                <p style="font-weight: bold; margin: 0 0 40px 0;">Plant Operator Signature:</p>
+                <div style="border-bottom: 1px solid #888;"></div>
+              </div>
+              <div>
+                <p style="font-weight: bold; margin: 0 0 40px 0;">Site Customer Acceptance Signature:</p>
+                <div style="border-bottom: 1px solid #888;"></div>
+                <p style="font-size: 9px; color: #666; margin: 4px 0 0 0;">Received in good condition. Additional site water added voids warranty.</p>
+              </div>
+            </div>
+          </div>
+        `;
         window.print();
       };
 
       return (
         <div class="p-6 max-w-6xl mx-auto">
           {/* Header Bar */}
-          <header class="flex justify-between items-center pb-6 border-b border-slate-800 mb-8 no-print">
+          <header class="flex justify-between items-center pb-6 border-b border-slate-800 mb-8">
             <div class="flex items-center space-x-3">
               <div class="bg-amber-500 text-slate-950 font-bold p-2 rounded-lg text-xl">BC</div>
               <div>
@@ -94,7 +221,7 @@
           </header>
 
           {/* Main Dashboard Preview */}
-          <main class="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
+          <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-slate-800/60 border border-slate-700/50 p-5 rounded-xl">
               <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Active Mix Design</h2>
               <p class="text-lg font-semibold text-amber-400">30 MPa Standard Structural</p>
@@ -109,15 +236,44 @@
             </div>
           </main>
 
-          {/* Delivery Ticket Modal */}
+          {/* Delivery Ticket Modal with Interactive Form Inputs */}
           {showTicket && (
-            <div class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full overflow-hidden shadow-2xl">
+            <div class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full my-8 overflow-hidden shadow-2xl">
                 
-                {/* Printable Area Wrapper */}
-                <div id="printable-ticket" class="bg-white text-slate-900 p-8">
-                  
-                  {/* Header */}
+                {/* Form Field Controls */}
+                <div class="bg-slate-950 p-5 border-b border-slate-800">
+                  <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">Edit Ticket Details</h3>
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label class="block text-slate-400 mb-1">Customer / Contractor Name</label>
+                      <input type="text" name="customer" value={ticketData.customer} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
+                    </div>
+                    <div>
+                      <label class="block text-slate-400 mb-1">Delivery Site Address</label>
+                      <input type="text" name="address" value={ticketData.address} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
+                    </div>
+                    <div>
+                      <label class="block text-slate-400 mb-1">Dispatch Time</label>
+                      <input type="text" name="dispatchTime" value={ticketData.dispatchTime} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
+                    </div>
+                    <div>
+                      <label class="block text-slate-400 mb-1">Truck ID</label>
+                      <input type="text" name="truckNo" value={ticketData.truckNo} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
+                    </div>
+                    <div>
+                      <label class="block text-slate-400 mb-1">Driver Name</label>
+                      <input type="text" name="driver" value={ticketData.driver} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
+                    </div>
+                    <div>
+                      <label class="block text-slate-400 mb-1">Slump Target</label>
+                      <input type="text" name="slump" value={ticketData.slump} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Printable Ticket Live Preview */}
+                <div class="bg-white text-slate-900 p-8">
                   <div class="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-6">
                     <div>
                       <h2 class="text-2xl font-black tracking-tight text-slate-950 uppercase">BatchCraft Concrete Ltd.</h2>
@@ -126,42 +282,40 @@
                     </div>
                     <div class="text-right">
                       <h3 class="text-lg font-extrabold text-slate-900">DELIVERY NOTE</h3>
-                      <p class="text-xs font-mono font-semibold text-slate-700">TICKET #: DN-84920</p>
-                      <p class="text-xs text-slate-600">Date: 01/09/2026</p>
+                      <p class="text-xs font-mono font-semibold text-slate-700">TICKET #: {ticketData.ticketNo}</p>
+                      <p class="text-xs text-slate-600">Date: {ticketData.date}</p>
                     </div>
                   </div>
 
-                  {/* Metadata Grid */}
                   <div class="border border-slate-200 rounded-lg p-4 mb-6 text-xs grid grid-cols-2 gap-4 bg-slate-50">
                     <div>
                       <p class="text-slate-500 uppercase font-bold text-[10px]">Customer / Contractor</p>
-                      <p class="font-bold text-slate-900 text-sm">BuildCo Construction Ltd</p>
+                      <p class="font-bold text-slate-900 text-sm">{ticketData.customer}</p>
                       <p class="text-slate-500 uppercase font-bold text-[10px] mt-2">Delivery Location</p>
-                      <p class="text-slate-800 font-medium">124 Main Street, Commercial Zone</p>
+                      <p class="text-slate-800 font-medium">{ticketData.address}</p>
                     </div>
                     <div>
                       <div class="grid grid-cols-2 gap-2">
                         <div>
                           <p class="text-slate-500 uppercase font-bold text-[10px]">Dispatch Time</p>
-                          <p class="font-semibold text-slate-800">13:15</p>
+                          <p class="font-semibold text-slate-800">{ticketData.dispatchTime}</p>
                         </div>
                         <div>
                           <p class="text-slate-500 uppercase font-bold text-[10px]">Truck No</p>
-                          <p class="font-semibold text-slate-800">TR-14</p>
+                          <p class="font-semibold text-slate-800">{ticketData.truckNo}</p>
                         </div>
                         <div>
                           <p class="text-slate-500 uppercase font-bold text-[10px]">Driver</p>
-                          <p class="font-semibold text-slate-800">J. Doe</p>
+                          <p class="font-semibold text-slate-800">{ticketData.driver}</p>
                         </div>
                         <div>
                           <p class="text-slate-500 uppercase font-bold text-[10px]">Target Slump</p>
-                          <p class="font-semibold text-slate-800">100 mm</p>
+                          <p class="font-semibold text-slate-800">{ticketData.slump}</p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Load Details */}
                   <div class="mb-6">
                     <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Load & Mix Details</h4>
                     <table class="w-full text-xs text-left border-collapse">
@@ -184,7 +338,6 @@
                     </table>
                   </div>
 
-                  {/* Batched Weights Table */}
                   <div class="mb-8">
                     <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Batched Scale Weights (Actual Target)</h4>
                     <table class="w-full text-xs text-left border-collapse">
@@ -225,7 +378,6 @@
                     </table>
                   </div>
 
-                  {/* Signatures */}
                   <div class="grid grid-cols-2 gap-8 pt-6 border-t border-slate-300 text-xs">
                     <div>
                       <p class="font-bold text-slate-900 mb-8">Plant Operator Signature:</p>
@@ -237,11 +389,10 @@
                       <p class="text-[10px] text-slate-500 mt-1">Received in good condition. Additional site water added voids warranty.</p>
                     </div>
                   </div>
-
                 </div>
 
-                {/* Modal Controls (Hidden during print) */}
-                <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end space-x-3 no-print">
+                {/* Modal Footer */}
+                <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end space-x-3">
                   <button 
                     onClick={() => setShowTicket(false)}
                     class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-sm rounded-lg transition-colors"
