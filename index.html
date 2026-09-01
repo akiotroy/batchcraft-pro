@@ -167,7 +167,8 @@
       const [labelCustSig, setLabelCustSig] = useState('Site Customer Acceptance Signature:');
       const [labelWaterAdded, setLabelWaterAdded] = useState('If water added on site:');
       const [labelWaterAmount, setLabelWaterAmount] = useState('Water added:');
-      const [disclaimerText, setDisclaimerText] = useState('Received in good condition. Additional site water added voids warranty.');
+      const [disclaimerText, setDisclaimerText] = useState('Received in good condition.');
+      const [waterWarningText, setWaterWarningText] = useState('Additional site water added voids warranty.');
 
       // Dynamic Unit Labels
       const isMetric = unitSystem === 'metric';
@@ -1130,7 +1131,11 @@
                       <label className="text-slate-400 block mb-1">Water Amount Label</label>
                       <input type="text" value={labelWaterAmount} onChange={(e) => setLabelWaterAmount(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100" />
                     </div>
-                    <div className="col-span-2">
+                    <div>
+                      <label className="text-slate-400 block mb-1">Water Added Disclaimer</label>
+                      <input type="text" value={waterWarningText} onChange={(e) => setWaterWarningText(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100" />
+                    </div>
+                    <div>
                       <label className="text-slate-400 block mb-1">Ticket Disclaimer / Terms</label>
                       <input type="text" value={disclaimerText} onChange={(e) => setDisclaimerText(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100" />
                     </div>
@@ -1258,6 +1263,7 @@
                         </div>
                         <div className="border-b border-black w-3/4"></div>
                         <p className="text-[9px] text-gray-500 mt-1">Signature for water added</p>
+                        <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setWaterWarningText(e.target.innerText)} className="text-[9px] font-semibold text-gray-700 mt-1">{waterWarningText}</p>
                       </div>
                     </div>
 
