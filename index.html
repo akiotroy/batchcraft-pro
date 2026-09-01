@@ -26,36 +26,57 @@
         size: A4 portrait;
         margin: 0;
       }
-      html, body {
+      body {
         background: #fff !important;
         color: #000 !important;
         margin: 0 !important;
         padding: 0 !important;
-        width: 210mm;
-        height: 297mm;
-        overflow: visible !important;
       }
-      body * {
-        visibility: hidden !important;
+      /* Hide everything inside body during print */
+      body > * {
+        display: none !important;
       }
-      #printable-delivery-note, #printable-delivery-note * {
+      /* Ensure root display tree is hidden */
+      #root {
+        display: none !important;
+      }
+      /* Show printable area */
+      #printable-delivery-note,
+      #printable-delivery-note * {
+        display: block !important;
         visibility: visible !important;
       }
+      /* Target table rows/cells specifically so display:block doesn't break layout */
+      #printable-delivery-note table {
+        display: table !important;
+      }
+      #printable-delivery-note tr {
+        display: table-row !important;
+      }
+      #printable-delivery-note th,
+      #printable-delivery-note td {
+        display: table-cell !important;
+      }
+      #printable-delivery-note flex,
+      #printable-delivery-note .flex {
+        display: flex !important;
+      }
+      #printable-delivery-note grid,
+      #printable-delivery-note .grid {
+        display: grid !important;
+      }
       #printable-delivery-note {
-        position: fixed !important;
+        position: absolute !important;
         left: 0 !important;
         top: 0 !important;
-        width: 210mm !important;
-        min-height: 297mm !important;
-        box-sizing: border-box !important;
-        padding: 15mm !important;
+        width: 100% !important;
         margin: 0 !important;
+        padding: 10mm !important;
         background-color: white !important;
         color: black !important;
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
-        z-index: 99999 !important;
       }
       .no-print {
         display: none !important;
@@ -1027,11 +1048,11 @@
 
           {/* PRINTABLE DELIVERY NOTE MODAL */}
           {showTicketModal && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto no-print">
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto">
               <div className="relative bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-6 my-8">
                 
                 {/* Modal Header & Quick Close Button */}
-                <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-4 no-print">
                   <h3 className="text-lg font-bold text-slate-100">Delivery Ticket Generator & Field Configurator</h3>
                   <div className="flex items-center space-x-2">
                     <button
@@ -1054,7 +1075,7 @@
                 </div>
 
                 {/* 100% Dynamic / Editable Ticket Configuration Panel */}
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 max-h-64 overflow-y-auto space-y-3">
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 max-h-64 overflow-y-auto space-y-3 no-print">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 pb-1">Edit All Delivery Note Fields & Labels</h4>
                   
                   {/* Company Info */}
@@ -1226,19 +1247,19 @@
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{formatMass(calculations.baseCement).toLocaleString()} {massUnit}</td>
                         </tr>
                         <tr>
-                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans font-medium text-slate-200">Fine Aggregate (Sand)</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans font-medium text-slate-800">Fine Aggregate (Sand)</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{formatMass(calculations.baseFineDry).toLocaleString()}</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">+{fineMoisture}%</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{formatMass(calculations.adjustedFineScale).toLocaleString()} {massUnit}</td>
                         </tr>
                         <tr>
-                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans font-medium text-slate-200">Coarse Aggregate (Stone)</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans font-medium text-slate-800">Coarse Aggregate (Stone)</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{formatMass(calculations.baseCoarseDry).toLocaleString()}</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">+{coarseMoisture}%</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{formatMass(calculations.adjustedCoarseScale).toLocaleString()} {massUnit}</td>
                         </tr>
                         <tr>
-                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans font-medium text-slate-200">Net Batch Water</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans font-medium text-slate-800">Net Batch Water</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{formatLiquid(calculations.baseWaterDesign).toLocaleString()}</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">-{formatLiquid(calculations.totalFreeWater)} {liquidUnit} (Free H₂O)</td>
                           <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{formatLiquid(calculations.netWaterScale).toLocaleString()} {liquidUnit}</td>
@@ -1306,6 +1327,7 @@
   </script>
 </body>
 </html>
+
 
 
 
