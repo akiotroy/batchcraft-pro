@@ -3,17 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BatchCraft Pro – Plant Management Engine</title>
-
+  <title>BatchCraft Pro - Plant Management Engine</title>
+  
   <script src="https://cdn.tailwindcss.com"></script>
-
+  
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-    
     body {
       font-family: 'Inter', sans-serif;
     }
@@ -21,402 +20,805 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* PRINT FIX: Hide the screen app entirely and reveal dedicated print markup */
-    @media print {
-      #root {
-        display: none !important;
-      }
-      #print-mount {
-        display: block !important;
-        width: 100% !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        color: #000000 !important;
-      }
-      @page {
-        size: A4 portrait;
-        margin: 12mm;
-      }
+    /* Target editable elements for clear user interaction */
+    [contenteditable="true"] {
+      outline: 1px dashed rgba(245, 158, 11, 0.4);
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+    [contenteditable="true"]:hover {
+      outline: 1px dashed rgba(245, 158, 11, 0.8);
+      background-color: rgba(254, 243, 199, 0.3);
+    }
+    [contenteditable="true"]:focus {
+      outline: 2px solid #f59e0b;
+      background-color: #fff;
     }
 
-    @media screen {
-      #print-mount {
+    /* Strict A4 Print Stylesheet */
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
+
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      
+      /* Hide top-level containers overflow */
+      html, body {
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+      }
+
+      #printable-delivery-note, #printable-delivery-note * {
+        visibility: visible;
+      }
+
+      #printable-delivery-note {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        max-width: 210mm !important; /* Standard A4 width */
+        background-color: white !important;
+        color: black !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+
+      [contenteditable="true"] {
+        outline: none !important;
+        background-color: transparent !important;
+      }
+
+      .no-print {
         display: none !important;
       }
     }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
   <div id="root"></div>
-  <div id="print-mount"></div>
 
   <script type="text/babel">
-    const { useState } = React;
+    const { useState, useEffect, useMemo } = React;
 
-    function BatchCraftApp() {
-      const [showTicket, setShowTicket] = useState(false);
+    // Preset Concrete Mix Designs
+    const PRESET_MIXES = [
+      { id: '30mpa', name: '30 MPa Standard Structural', cement: 350, fineAgg: 820, coarseAgg: 1040, water: 175, wRatio: 0.50 },
+      { id: '25mpa', name: '25 MPa Residential Slab', cement: 310, fineAgg: 850, coarseAgg: 1060, water: 185, wRatio: 0.60 },
+      { id: '40mpa', name: '40 MPa High Early / Bridge', cement: 420, fineAgg: 780, coarseAgg: 1020, water: 160, wRatio: 0.38 },
+      { id: 'scc', name: 'Self-Consolidating (SCC)', cement: 460, fineAgg: 890, coarseAgg: 850, water: 180, wRatio: 0.39 }
+    ];
 
-      // Editable Ticket State
-      const [ticketData, setTicketData] = useState({
-        customer: "BuildCo Construction Ltd",
-        address: "124 Main Street, Commercial Zone",
-        dispatchTime: "13:22",
-        truckNo: "TR-14",
-        driver: "J. Doe",
-        slump: "100 mm",
-        ticketNo: "DN-84920",
-        date: "01/09/2026"
-      });
+    function App() {
+      // Active Navigation Tab
+      const [activeTab, setActiveTab] = useState('batch-adjuster');
 
-      const handleChange = (e) => {
-        const { name, value } = e.target;
-        setTicketData(prev => ({ ...prev, [name]: value }));
-      };
+      // Global Batch Configuration State
+      const [selectedMixId, setSelectedMixId] = useState('30mpa');
+      const [loadVolume, setLoadVolume] = useState(6.0); // m³
 
-      const handlePrint = () => {
-        // Render print element directly into the isolated body container
-        const mount = document.getElementById('print-mount');
-        mount.innerHTML = `
-          <div style="font-family: 'Inter', sans-serif; color: #000; padding: 10px;">
-            <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 20px;">
-              <div>
-                <h2 style="font-size: 22px; font-weight: 900; margin: 0; text-transform: uppercase;">BatchCraft Concrete Ltd.</h2>
-                <p style="font-size: 11px; margin: 2px 0 0 0; color: #444;">Central Batching Plant #04 • Tel: (011) 555-0192</p>
-                <p style="font-size: 11px; margin: 0; color: #666;">Quality Assured Ready-Mix Concrete</p>
-              </div>
-              <div style="text-align: right;">
-                <h3 style="font-size: 16px; font-weight: 800; margin: 0;">DELIVERY NOTE</h3>
-                <p style="font-size: 11px; font-family: monospace; font-weight: 700; margin: 2px 0 0 0;">TICKET #: ${ticketData.ticketNo}</p>
-                <p style="font-size: 11px; margin: 0; color: #444;">Date: ${ticketData.date}</p>
-              </div>
-            </div>
+      // Aggregate Properties
+      const [fineMoisture, setFineMoisture] = useState(4.5);
+      const [fineAbs, setFineAbs] = useState(1.0);
+      const [coarseMoisture, setCoarseMoisture] = useState(1.8);
+      const [coarseAbs, setCoarseAbs] = useState(0.5);
 
-            <div style="border: 1px solid #ccc; border-radius: 6px; padding: 12px; margin-bottom: 20px; font-size: 11px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background-color: #f9f9f9;">
-              <div>
-                <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Customer / Contractor</p>
-                <p style="font-weight: bold; font-size: 13px; margin: 2px 0 8px 0;">${ticketData.customer}</p>
-                <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Delivery Location</p>
-                <p style="font-weight: 500; margin: 2px 0 0 0;">${ticketData.address}</p>
-              </div>
-              <div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                  <div>
-                    <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Dispatch Time</p>
-                    <p style="font-weight: 600; margin: 2px 0 0 0;">${ticketData.dispatchTime}</p>
-                  </div>
-                  <div>
-                    <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Truck No</p>
-                    <p style="font-weight: 600; margin: 2px 0 0 0;">${ticketData.truckNo}</p>
-                  </div>
-                  <div>
-                    <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Driver</p>
-                    <p style="font-weight: 600; margin: 2px 0 0 0;">${ticketData.driver}</p>
-                  </div>
-                  <div>
-                    <p style="color: #666; font-weight: bold; font-size: 9px; margin: 0; text-transform: uppercase;">Target Slump</p>
-                    <p style="font-weight: 600; margin: 2px 0 0 0;">${ticketData.slump}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+      // Temperature Variables
+      const [tempCement, setTempCement] = useState(45);
+      const [tempAgg, setTempAgg] = useState(24);
+      const [tempWater, setTempWater] = useState(18);
+      const [useIce, setUseIce] = useState(false);
+      const [icePct, setIcePct] = useState(20);
 
-            <div style="margin-bottom: 20px;">
-              <h4 style="font-size: 11px; font-weight: bold; margin: 0 0 8px 0; text-transform: uppercase;">Load & Mix Details</h4>
-              <table style="width: 100%; font-size: 11px; border-collapse: collapse; text-align: left;">
-                <thead>
-                  <tr style="border-bottom: 1px solid #aaa; color: #555;">
-                    <th style="padding: 6px 0;">Mix Design</th>
-                    <th style="padding: 6px 0; text-align: center;">Load Volume</th>
-                    <th style="padding: 6px 0; text-align: center;">Est. Discharge Temp</th>
-                    <th style="padding: 6px 0; text-align: right;">Unit Density</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr style="border-bottom: 1px solid #ddd; font-weight: 600;">
-                    <td style="padding: 8px 0;">30 MPa Standard Structural</td>
-                    <td style="padding: 8px 0; text-align: center; font-size: 12px; font-weight: bold;">6 m³</td>
-                    <td style="padding: 8px 0; text-align: center;">25.2 °C</td>
-                    <td style="padding: 8px 0; text-align: right; font-family: monospace;">2398 kg/m³</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+      // Delivery Ticket Modal State
+      const [showTicketModal, setShowTicketModal] = useState(false);
 
-            <div style="margin-bottom: 30px;">
-              <h4 style="font-size: 11px; font-weight: bold; margin: 0 0 8px 0; text-transform: uppercase;">Batched Scale Weights (Actual Target)</h4>
-              <table style="width: 100%; font-size: 11px; border-collapse: collapse; text-align: left;">
-                <thead>
-                  <tr style="border-bottom: 2px solid #000; color: #333;">
-                    <th style="padding: 6px 0;">Material</th>
-                    <th style="padding: 6px 0; text-align: right;">Design Dry (kg)</th>
-                    <th style="padding: 6px 0; text-align: right;">Moisture Adjustment</th>
-                    <th style="padding: 6px 0; text-align: right;">Batched Scale Weight</th>
-                  </tr>
-                </thead>
-                <tbody style="font-family: monospace;">
-                  <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 6px 0; font-family: sans-serif; font-weight: 500;">Cement Powder</td>
-                    <td style="padding: 6px 0; text-align: right; color: #555;">2100</td>
-                    <td style="padding: 6px 0; text-align: right; color: #555;">0 %</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: bold;">2100 kg</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 6px 0; font-family: sans-serif; font-weight: 500;">Fine Aggregate (Sand)</td>
-                    <td style="padding: 6px 0; text-align: right; color: #555;">4920</td>
-                    <td style="padding: 6px 0; text-align: right; color: #555;">+4.5%</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: bold;">5141 kg</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 6px 0; font-family: sans-serif; font-weight: 500;">Coarse Aggregate (Stone)</td>
-                    <td style="padding: 6px 0; text-align: right; color: #555;">6240</td>
-                    <td style="padding: 6px 0; text-align: right; color: #555;">+1.8%</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: bold;">6352 kg</td>
-                  </tr>
-                  <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 6px 0; font-family: sans-serif; font-weight: 500;">Net Batch Water</td>
-                    <td style="padding: 6px 0; text-align: right; color: #555;">1050</td>
-                    <td style="padding: 6px 0; text-align: right; color: #555;">-253 L (Free H₂O)</td>
-                    <td style="padding: 6px 0; text-align: right; font-weight: bold;">797 L</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+      // Selected Base Mix Recipe
+      const currentMix = useMemo(() => {
+        return PRESET_MIXES.find(m => m.id === selectedMixId) || PRESET_MIXES[0];
+      }, [selectedMixId]);
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 11px;">
-              <div>
-                <p style="font-weight: bold; margin: 0 0 40px 0;">Plant Operator Signature:</p>
-                <div style="border-bottom: 1px solid #888;"></div>
-              </div>
-              <div>
-                <p style="font-weight: bold; margin: 0 0 40px 0;">Site Customer Acceptance Signature:</p>
-                <div style="border-bottom: 1px solid #888;"></div>
-                <p style="font-size: 9px; color: #666; margin: 4px 0 0 0;">Received in good condition. Additional site water added voids warranty.</p>
-              </div>
-            </div>
-          </div>
-        `;
-        window.print();
-      };
+      // Calculations Engine
+      const calculations = useMemo(() => {
+        const fineFreeMoisturePct = fineMoisture - fineAbs;
+        const coarseFreeMoisturePct = coarseMoisture - coarseAbs;
+
+        const baseCement = currentMix.cement * loadVolume;
+        const baseFineDry = currentMix.fineAgg * loadVolume;
+        const baseCoarseDry = currentMix.coarseAgg * loadVolume;
+        const baseWaterDesign = currentMix.water * loadVolume;
+
+        const adjustedFineScale = baseFineDry * (1 + fineMoisture / 100);
+        const adjustedCoarseScale = baseCoarseDry * (1 + coarseMoisture / 100);
+
+        const fineFreeWater = baseFineDry * (fineFreeMoisturePct / 100);
+        const coarseFreeWater = baseCoarseDry * (coarseFreeMoisturePct / 100);
+        const totalFreeWater = fineFreeWater + coarseFreeWater;
+
+        const netWaterScale = Math.max(0, baseWaterDesign - totalFreeWater);
+
+        const volCement = baseCement / (3.15 * 1000);
+        const volFine = baseFineDry / (2.65 * 1000);
+        const volCoarse = baseCoarseDry / (2.68 * 1000);
+        const volNetWater = netWaterScale / (1.00 * 1000);
+        const volFreeWater = totalFreeWater / (1.00 * 1000);
+        const totalSolidWaterVol = volCement + volFine + volCoarse + volNetWater + volFreeWater;
+        
+        const estimatedYieldM3 = totalSolidWaterVol / 0.98;
+        const totalWetBatchMass = baseCement + adjustedFineScale + adjustedCoarseScale + netWaterScale;
+        const wetUnitWeight = totalWetBatchMass / loadVolume;
+
+        const Mc = baseCement;
+        const Ma = baseFineDry + baseCoarseDry;
+        const Mw = netWaterScale;
+        const Mwa = totalFreeWater;
+
+        const numerator = 0.22 * (tempCement * Mc + tempAgg * Ma) + (tempWater * Mw) + (tempAgg * Mwa);
+        const denominator = 0.22 * (Mc + Ma) + Mw + Mwa;
+        let estimatedTemp = numerator / denominator;
+
+        if (useIce) {
+          const iceMass = netWaterScale * (icePct / 100);
+          const coolingEffect = (iceMass * 80) / (0.22 * (Mc + Ma) + Mw + Mwa);
+          estimatedTemp = Math.max(5, estimatedTemp - (coolingEffect * 0.12));
+        }
+
+        return {
+          fineFreeMoisturePct,
+          coarseFreeMoisturePct,
+          baseCement,
+          baseFineDry,
+          baseCoarseDry,
+          baseWaterDesign,
+          adjustedFineScale,
+          adjustedCoarseScale,
+          fineFreeWater,
+          coarseFreeWater,
+          totalFreeWater,
+          netWaterScale,
+          estimatedYieldM3,
+          wetUnitWeight,
+          estimatedTemp
+        };
+      }, [currentMix, loadVolume, fineMoisture, fineAbs, coarseMoisture, coarseAbs, tempCement, tempAgg, tempWater, useIce, icePct]);
 
       return (
-        <div class="p-6 max-w-6xl mx-auto">
+        <div className="flex flex-col min-h-screen">
           {/* Header Bar */}
-          <header class="flex justify-between items-center pb-6 border-b border-slate-800 mb-8">
-            <div class="flex items-center space-x-3">
-              <div class="bg-amber-500 text-slate-950 font-bold p-2 rounded-lg text-xl">BC</div>
-              <div>
-                <h1 class="text-xl font-bold tracking-tight text-white">BatchCraft <span class="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded border border-amber-500/30">PRO</span></h1>
-                <p class="text-xs text-slate-400">Concrete Batching & Quality Control System</p>
+          <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="bg-amber-500 text-slate-950 p-2 rounded-lg font-black text-xl tracking-wider">
+                  BC
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-slate-100 leading-none">BatchCraft <span className="text-amber-500 font-mono text-xs px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">PRO</span></h1>
+                  <p className="text-xs text-slate-400">Concrete Batching & Yield Optimization Engine</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4">
+                <nav className="flex space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  <button
+                    onClick={() => setActiveTab('batch-adjuster')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      activeTab === 'batch-adjuster' ? 'bg-amber-500 text-slate-950 shadow-md font-semibold' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Moisture & Scale Trim
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('temp-engine')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      activeTab === 'temp-engine' ? 'bg-amber-500 text-slate-950 shadow-md font-semibold' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Concrete Temp & Ice
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('mix-library')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      activeTab === 'mix-library' ? 'bg-amber-500 text-slate-950 shadow-md font-semibold' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Mix Recipes
+                  </button>
+                </nav>
+
+                <button
+                  onClick={() => setShowTicketModal(true)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg transition-all flex items-center space-x-2 border border-emerald-400/30"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                  <span>Delivery Note</span>
+                </button>
               </div>
             </div>
-            
-            <button 
-              onClick={() => setShowTicket(true)}
-              class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg transition-colors shadow-lg shadow-emerald-950/50 flex items-center space-x-2"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-              <span>View Delivery Note</span>
-            </button>
           </header>
 
-          {/* Main Dashboard Preview */}
-          <main class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-slate-800/60 border border-slate-700/50 p-5 rounded-xl">
-              <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Active Mix Design</h2>
-              <p class="text-lg font-semibold text-amber-400">30 MPa Standard Structural</p>
-            </div>
-            <div class="bg-slate-800/60 border border-slate-700/50 p-5 rounded-xl">
-              <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Calculated Volume</h2>
-              <p class="text-lg font-semibold text-emerald-400">6.00 m³</p>
-            </div>
-            <div class="bg-slate-800/60 border border-slate-700/50 p-5 rounded-xl">
-              <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Plant Status</h2>
-              <p class="text-lg font-semibold text-blue-400">Ready to Batch</p>
-            </div>
-          </main>
+          {/* Main Content Area */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8 shadow-xl">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Active Mix Design</label>
+                  <select
+                    value={selectedMixId}
+                    onChange={(e) => setSelectedMixId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  >
+                    {PRESET_MIXES.map(mix => (
+                      <option key={mix.id} value={mix.id}>{mix.name} (w/c: {mix.wRatio})</option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Delivery Ticket Modal with Interactive Form Inputs */}
-          {showTicket && (
-            <div class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
-              <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full my-8 overflow-hidden shadow-2xl">
-                
-                {/* Form Field Controls */}
-                <div class="bg-slate-950 p-5 border-b border-slate-800">
-                  <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider mb-3">Edit Ticket Details</h3>
-                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label class="block text-slate-400 mb-1">Customer / Contractor Name</label>
-                      <input type="text" name="customer" value={ticketData.customer} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
-                    </div>
-                    <div>
-                      <label class="block text-slate-400 mb-1">Delivery Site Address</label>
-                      <input type="text" name="address" value={ticketData.address} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
-                    </div>
-                    <div>
-                      <label class="block text-slate-400 mb-1">Dispatch Time</label>
-                      <input type="text" name="dispatchTime" value={ticketData.dispatchTime} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
-                    </div>
-                    <div>
-                      <label class="block text-slate-400 mb-1">Truck ID</label>
-                      <input type="text" name="truckNo" value={ticketData.truckNo} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
-                    </div>
-                    <div>
-                      <label class="block text-slate-400 mb-1">Driver Name</label>
-                      <input type="text" name="driver" value={ticketData.driver} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
-                    </div>
-                    <div>
-                      <label class="block text-slate-400 mb-1">Slump Target</label>
-                      <input type="text" name="slump" value={ticketData.slump} onChange={handleChange} class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-white focus:outline-none focus:border-amber-500" />
-                    </div>
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Batch Truck Volume</label>
+                    <span className="font-mono text-amber-400 font-bold">{loadVolume} m³</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1.0"
+                    max="12.0"
+                    step="0.5"
+                    value={loadVolume}
+                    onChange={(e) => setLoadVolume(parseFloat(e.target.value))}
+                    className="w-full accent-amber-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                    <span>1.0 m³</span>
+                    <span>6.0 m³</span>
+                    <span>12.0 m³</span>
                   </div>
                 </div>
 
-                {/* Printable Ticket Live Preview */}
-                <div class="bg-white text-slate-900 p-8">
-                  <div class="flex justify-between items-start border-b-2 border-slate-900 pb-4 mb-6">
-                    <div>
-                      <h2 class="text-2xl font-black tracking-tight text-slate-950 uppercase">BatchCraft Concrete Ltd.</h2>
-                      <p class="text-xs text-slate-600 font-medium">Central Batching Plant #04 • Tel: (011) 555-0192</p>
-                      <p class="text-xs text-slate-500">Quality Assured Ready-Mix Concrete</p>
-                    </div>
-                    <div class="text-right">
-                      <h3 class="text-lg font-extrabold text-slate-900">DELIVERY NOTE</h3>
-                      <p class="text-xs font-mono font-semibold text-slate-700">TICKET #: {ticketData.ticketNo}</p>
-                      <p class="text-xs text-slate-600">Date: {ticketData.date}</p>
-                    </div>
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 flex justify-between items-center">
+                  <div>
+                    <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Estimated Unit Density</span>
+                    <span className="text-xl font-mono font-bold text-slate-100">{Math.round(calculations.wetUnitWeight)} <span className="text-xs text-slate-400 font-sans">kg/m³</span></span>
                   </div>
+                  <div className="text-right">
+                    <span className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Calculated Vol. Yield</span>
+                    <span className={`text-xl font-mono font-bold ${Math.abs(calculations.estimatedYieldM3 - loadVolume) > 0.1 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      {calculations.estimatedYieldM3.toFixed(2)} <span className="text-xs text-slate-400 font-sans">m³</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                  <div class="border border-slate-200 rounded-lg p-4 mb-6 text-xs grid grid-cols-2 gap-4 bg-slate-50">
-                    <div>
-                      <p class="text-slate-500 uppercase font-bold text-[10px]">Customer / Contractor</p>
-                      <p class="font-bold text-slate-900 text-sm">{ticketData.customer}</p>
-                      <p class="text-slate-500 uppercase font-bold text-[10px] mt-2">Delivery Location</p>
-                      <p class="text-slate-800 font-medium">{ticketData.address}</p>
+            {/* TAB 1 */}
+            {activeTab === 'batch-adjuster' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-5 space-y-6">
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-md font-bold text-amber-400">Sand / Fine Aggregate</h3>
+                      <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2 py-1 rounded">
+                        Dry Base: {(currentMix.fineAgg * loadVolume).toLocaleString()} kg
+                      </span>
                     </div>
-                    <div>
-                      <div class="grid grid-cols-2 gap-2">
-                        <div>
-                          <p class="text-slate-500 uppercase font-bold text-[10px]">Dispatch Time</p>
-                          <p class="font-semibold text-slate-800">{ticketData.dispatchTime}</p>
+
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-slate-300">Total Moisture Content:</span>
+                          <span className="font-mono text-amber-400 font-bold">{fineMoisture}%</span>
                         </div>
-                        <div>
-                          <p class="text-slate-500 uppercase font-bold text-[10px]">Truck No</p>
-                          <p class="font-semibold text-slate-800">{ticketData.truckNo}</p>
+                        <input
+                          type="range"
+                          min="0.0"
+                          max="10.0"
+                          step="0.1"
+                          value={fineMoisture}
+                          onChange={(e) => setFineMoisture(parseFloat(e.target.value))}
+                          className="w-full accent-amber-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-slate-300">Aggregate Absorption Capacity:</span>
+                          <span className="font-mono text-slate-400">{fineAbs}%</span>
                         </div>
-                        <div>
-                          <p class="text-slate-500 uppercase font-bold text-[10px]">Driver</p>
-                          <p class="font-semibold text-slate-800">{ticketData.driver}</p>
-                        </div>
-                        <div>
-                          <p class="text-slate-500 uppercase font-bold text-[10px]">Target Slump</p>
-                          <p class="font-semibold text-slate-800">{ticketData.slump}</p>
-                        </div>
+                        <input
+                          type="range"
+                          min="0.0"
+                          max="3.0"
+                          step="0.1"
+                          value={fineAbs}
+                          onChange={(e) => setFineAbs(parseFloat(e.target.value))}
+                          className="w-full accent-slate-600 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-800/80 flex justify-between text-xs font-mono">
+                        <span className="text-slate-400">Calculated Free Water:</span>
+                        <span className="text-amber-400 font-bold">+{calculations.fineFreeWater.toFixed(1)} Liters</span>
                       </div>
                     </div>
                   </div>
 
-                  <div class="mb-6">
-                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Load & Mix Details</h4>
-                    <table class="w-full text-xs text-left border-collapse">
-                      <thead>
-                        <tr class="border-b border-slate-300 text-slate-600">
-                          <th class="py-2 font-bold">Mix Design</th>
-                          <th class="py-2 font-bold text-center">Load Volume</th>
-                          <th class="py-2 font-bold text-center">Est. Discharge Temp</th>
-                          <th class="py-2 font-bold text-right">Unit Density</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr class="border-b border-slate-200 font-semibold text-slate-900">
-                          <td class="py-2.5">30 MPa Standard Structural</td>
-                          <td class="py-2.5 text-center text-sm font-bold">6 m³</td>
-                          <td class="py-2.5 text-center">25.2 °C</td>
-                          <td class="py-2.5 text-right font-mono">2398 kg/m³</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div class="mb-8">
-                    <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Batched Scale Weights (Actual Target)</h4>
-                    <table class="w-full text-xs text-left border-collapse">
-                      <thead>
-                        <tr class="border-b-2 border-slate-900 text-slate-700">
-                          <th class="py-2 font-bold">Material</th>
-                          <th class="py-2 font-bold text-right">Design Dry (kg)</th>
-                          <th class="py-2 font-bold text-right">Moisture Adjustment</th>
-                          <th class="py-2 font-bold text-right">Batched Scale Weight</th>
-                        </tr>
-                      </thead>
-                      <tbody class="divide-y divide-slate-200 font-mono">
-                        <tr>
-                          <td class="py-2 font-sans font-medium text-slate-900">Cement Powder</td>
-                          <td class="py-2 text-right text-slate-600">2100</td>
-                          <td class="py-2 text-right text-slate-600">0 %</td>
-                          <td class="py-2 text-right font-bold text-slate-900">2100 kg</td>
-                        </tr>
-                        <tr>
-                          <td class="py-2 font-sans font-medium text-slate-900">Fine Aggregate (Sand)</td>
-                          <td class="py-2 text-right text-slate-600">4920</td>
-                          <td class="py-2 text-right text-slate-600">+4.5%</td>
-                          <td class="py-2 text-right font-bold text-slate-900">5141 kg</td>
-                        </tr>
-                        <tr>
-                          <td class="py-2 font-sans font-medium text-slate-900">Coarse Aggregate (Stone)</td>
-                          <td class="py-2 text-right text-slate-600">6240</td>
-                          <td class="py-2 text-right text-slate-600">+1.8%</td>
-                          <td class="py-2 text-right font-bold text-slate-900">6352 kg</td>
-                        </tr>
-                        <tr>
-                          <td class="py-2 font-sans font-medium text-slate-900">Net Batch Water</td>
-                          <td class="py-2 text-right text-slate-600">1050</td>
-                          <td class="py-2 text-right text-slate-600">-253 L (Free H₂O)</td>
-                          <td class="py-2 text-right font-bold text-slate-900">797 L</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div class="grid grid-cols-2 gap-8 pt-6 border-t border-slate-300 text-xs">
-                    <div>
-                      <p class="font-bold text-slate-900 mb-8">Plant Operator Signature:</p>
-                      <div class="border-b border-slate-400"></div>
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-md font-bold text-amber-400">Stone / Coarse Aggregate</h3>
+                      <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2 py-1 rounded">
+                        Dry Base: {(currentMix.coarseAgg * loadVolume).toLocaleString()} kg
+                      </span>
                     </div>
-                    <div>
-                      <p class="font-bold text-slate-900 mb-8">Site Customer Acceptance Signature:</p>
-                      <div class="border-b border-slate-400"></div>
-                      <p class="text-[10px] text-slate-500 mt-1">Received in good condition. Additional site water added voids warranty.</p>
+
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-slate-300">Total Moisture Content:</span>
+                          <span className="font-mono text-amber-400 font-bold">{coarseMoisture}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.0"
+                          max="6.0"
+                          step="0.1"
+                          value={coarseMoisture}
+                          onChange={(e) => setCoarseMoisture(parseFloat(e.target.value))}
+                          className="w-full accent-amber-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-slate-300">Aggregate Absorption Capacity:</span>
+                          <span className="font-mono text-slate-400">{coarseAbs}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.0"
+                          max="2.0"
+                          step="0.1"
+                          value={coarseAbs}
+                          onChange={(e) => setCoarseAbs(parseFloat(e.target.value))}
+                          className="w-full accent-slate-600 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-800/80 flex justify-between text-xs font-mono">
+                        <span className="text-slate-400">Calculated Free Water:</span>
+                        <span className="text-amber-400 font-bold">+{calculations.coarseFreeWater.toFixed(1)} Liters</span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Modal Footer */}
-                <div class="p-4 bg-slate-950 border-t border-slate-800 flex justify-end space-x-3">
-                  <button 
-                    onClick={() => setShowTicket(false)}
-                    class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium text-sm rounded-lg transition-colors"
+                <div className="lg:col-span-7">
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl h-full flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-center mb-6">
+                        <div>
+                          <h2 className="text-lg font-bold text-slate-100">Live Scale Weight Trim Output</h2>
+                          <p className="text-xs text-slate-400">Target weights to program into plant automated scale hoppers</p>
+                        </div>
+                        <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-full">
+                          Ready for Batching
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                              <th className="pb-3">Material</th>
+                              <th className="pb-3 text-right">Design (Dry)</th>
+                              <th className="pb-3 text-right">Moisture Trim</th>
+                              <th className="pb-3 text-right text-amber-400">Scale Target</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-mono text-sm">
+                            <tr>
+                              <td className="py-4 font-sans font-medium text-slate-200">Cement Powder</td>
+                              <td className="py-4 text-right text-slate-400">{Math.round(calculations.baseCement).toLocaleString()} kg</td>
+                              <td className="py-4 text-right text-slate-500">—</td>
+                              <td className="py-4 text-right font-bold text-slate-100">{Math.round(calculations.baseCement).toLocaleString()} kg</td>
+                            </tr>
+                            <tr>
+                              <td className="py-4 font-sans font-medium text-slate-200">Fine Aggregate (Sand)</td>
+                              <td className="py-4 text-right text-slate-400">{Math.round(calculations.baseFineDry).toLocaleString()} kg</td>
+                              <td className="py-4 text-right text-amber-400 font-semibold">+{Math.round(calculations.adjustedFineScale - calculations.baseFineDry)} kg</td>
+                              <td className="py-4 text-right font-bold text-amber-400">{Math.round(calculations.adjustedFineScale).toLocaleString()} kg</td>
+                            </tr>
+                            <tr>
+                              <td className="py-4 font-sans font-medium text-slate-200">Coarse Aggregate (Stone)</td>
+                              <td className="py-4 text-right text-slate-400">{Math.round(calculations.baseCoarseDry).toLocaleString()} kg</td>
+                              <td className="py-4 text-right text-amber-400 font-semibold">+{Math.round(calculations.adjustedCoarseScale - calculations.baseCoarseDry)} kg</td>
+                              <td className="py-4 text-right font-bold text-amber-400">{Math.round(calculations.adjustedCoarseScale).toLocaleString()} kg</td>
+                            </tr>
+                            <tr>
+                              <td className="py-4 font-sans font-medium text-slate-200">Batch Water (Net)</td>
+                              <td className="py-4 text-right text-slate-400">{Math.round(calculations.baseWaterDesign).toLocaleString()} L</td>
+                              <td className="py-4 text-right text-rose-400 font-semibold">-{Math.round(calculations.totalFreeWater)} L</td>
+                              <td className="py-4 text-right font-bold text-cyan-400">{Math.round(calculations.netWaterScale).toLocaleString()} L</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-3 h-3 rounded-full bg-rose-500 animate-pulse"></div>
+                        <div>
+                          <span className="text-xs font-semibold text-slate-300 block">Total Water Trimmed From Mix</span>
+                          <span className="text-[11px] text-slate-500">Subtracted to compensate for free moisture in aggregates</span>
+                        </div>
+                      </div>
+                      <span className="text-2xl font-mono font-black text-rose-400">
+                        -{Math.round(calculations.totalFreeWater)} <span className="text-sm text-slate-400">Liters</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2 */}
+            {activeTab === 'temp-engine' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-100 mb-1">Raw Material Temperatures</h2>
+                    <p className="text-xs text-slate-400 mb-6">Input current temperature readings of raw stockpiles and water tanks</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-slate-300">Silo Cement Powder Temp:</span>
+                        <span className="font-mono text-amber-400 font-bold">{tempCement}°C</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="10"
+                        max="80"
+                        value={tempCement}
+                        onChange={(e) => setTempCement(parseFloat(e.target.value))}
+                        className="w-full accent-amber-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-slate-300">Aggregate Stockpile Temp:</span>
+                        <span className="font-mono text-amber-400 font-bold">{tempAgg}°C</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="5"
+                        max="45"
+                        value={tempAgg}
+                        onChange={(e) => setTempAgg(parseFloat(e.target.value))}
+                        className="w-full accent-amber-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-slate-300">Batch Water Tank Temp:</span>
+                        <span className="font-mono text-cyan-400 font-bold">{tempWater}°C</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="2"
+                        max="35"
+                        value={tempWater}
+                        onChange={(e) => setTempWater(parseFloat(e.target.value))}
+                        className="w-full accent-cyan-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-800">
+                    <div className="flex justify-between items-center mb-4">
+                      <div>
+                        <span className="font-bold text-slate-200 block text-sm">Chilled Flaked Ice Substitution</span>
+                        <span className="text-xs text-slate-400">Substitute portion of batch water with ice</span>
+                      </div>
+                      <button
+                        onClick={() => setUseIce(!useIce)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          useIce ? 'bg-cyan-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {useIce ? 'ICE ACTIVE' : 'NO ICE'}
+                      </button>
+                    </div>
+
+                    {useIce && (
+                      <div className="bg-slate-950 p-4 rounded-xl border border-cyan-500/20 space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-300">Water Replacement with Ice:</span>
+                          <span className="font-mono text-cyan-400 font-bold">{icePct}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="5"
+                          max="80"
+                          step="5"
+                          value={icePct}
+                          onChange={(e) => setIcePct(parseFloat(e.target.value))}
+                          className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-xs font-mono text-slate-400 pt-1">
+                          <span>Ice Mass Required:</span>
+                          <span className="text-cyan-400 font-bold">
+                            {Math.round(calculations.netWaterScale * (icePct / 100))} kg / truck
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-100 mb-1">Theoretical Concrete Discharge Temp</h2>
+                    <p className="text-xs text-slate-400 mb-8">Estimated fresh concrete temperature at discharge</p>
+
+                    <div className="text-center py-8 bg-slate-950 rounded-2xl border border-slate-800">
+                      <div className="text-6xl font-mono font-black mb-2 tracking-tight">
+                        <span className={
+                          calculations.estimatedTemp > 32 
+                            ? 'text-rose-500' 
+                            : calculations.estimatedTemp > 28 
+                            ? 'text-amber-400' 
+                            : 'text-emerald-400'
+                        }>
+                          {calculations.estimatedTemp.toFixed(1)}°C
+                        </span>
+                      </div>
+
+                      {calculations.estimatedTemp > 32 ? (
+                        <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">
+                          <span>EXCEEDS ASTM C94 LIMIT (32°C)</span>
+                        </div>
+                      ) : calculations.estimatedTemp > 28 ? (
+                        <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold">
+                          <span>WARM CONCRETE - MONITOR SET TIME</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                          <span>OPTIMAL PLACEMENT TEMPERATURE</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 space-y-2 text-xs text-slate-400">
+                    <span className="font-bold text-slate-300 block mb-1">Batch Manager Hot Weather Advice:</span>
+                    <p>• High discharge temps reduce setting time and accelerate slump loss.</p>
+                    <p>• Consider shading aggregate stockpiles or sprinkling coarse aggregates with water.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3 */}
+            {activeTab === 'mix-library' && (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-100">Stored Mix Recipes (Per m³)</h2>
+                    <p className="text-xs text-slate-400">Base dry target masses for 1 cubic meter of compacted concrete</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {PRESET_MIXES.map(mix => (
+                    <div key={mix.id} className={`p-5 rounded-xl border ${mix.id === selectedMixId ? 'bg-slate-950 border-amber-500/50' : 'bg-slate-950/50 border-slate-800'}`}>
+                      <div className="flex justify-between items-center mb-3">
+                        <h3 className="font-bold text-slate-100">{mix.name}</h3>
+                        <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">w/c: {mix.wRatio}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300">
+                        <div>Cement: <span className="font-bold">{mix.cement} kg</span></div>
+                        <div>Water: <span className="font-bold">{mix.water} L</span></div>
+                        <div>Fine Agg: <span className="font-bold">{mix.fineAgg} kg</span></div>
+                        <div>Coarse Agg: <span className="font-bold">{mix.coarseAgg} kg</span></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {/* PRINTABLE DELIVERY NOTE MODAL */}
+          {showTicketModal && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center p-4 overflow-y-auto no-print">
+              <div className="relative bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 my-8">
+                
+                {/* Modal Header & Quick Controls */}
+                <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-100">Delivery Ticket</h3>
+                    <p className="text-xs text-amber-400">Click any text directly on the note below to edit values before printing.</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => window.print()}
+                      className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                      <span>Print A4 Ticket</span>
+                    </button>
+                    <button
+                      onClick={() => setShowTicketModal(false)}
+                      className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+                      title="Close Modal"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* DIRECTLY EDITABLE PRINTABLE TICKET CONTENT (A4 SIZED) */}
+                <div id="printable-delivery-note" className="relative bg-white text-black p-8 rounded-lg shadow-inner font-sans border border-slate-200">
+                  
+                  {/* Top-Right Close Button inside Ticket Header */}
+                  <button
+                    onClick={() => setShowTicketModal(false)}
+                    className="no-print absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all"
+                    title="Close Ticket"
                   >
-                    Close Window
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
                   </button>
-                  <button 
-                    onClick={handlePrint}
-                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm rounded-lg transition-colors flex items-center space-x-2 shadow-lg shadow-emerald-950/50"
-                  >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                    <span>Print Ticket</span>
-                  </button>
+
+                  {/* Ticket Header */}
+                  <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4 pr-6">
+                    <div>
+                      <h1 contentEditable="true" suppressContentEditableWarning={true} className="text-2xl font-black tracking-tight text-black uppercase inline-block">BatchCraft Concrete Ltd.</h1>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="text-xs text-gray-600">Central Batching Plant #04 • Tel: (555) 019-2831</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="text-xs text-gray-600">Quality Assured Ready-Mix Concrete</p>
+                    </div>
+                    <div className="text-right">
+                      <h2 contentEditable="true" suppressContentEditableWarning={true} className="text-xl font-bold text-black">DELIVERY NOTE</h2>
+                      <p className="text-xs font-mono font-bold text-gray-800">TICKET #: <span contentEditable="true" suppressContentEditableWarning={true}>DN-84920</span></p>
+                      <p className="text-xs text-gray-600">Date: <span contentEditable="true" suppressContentEditableWarning={true}>{new Date().toLocaleDateString()}</span></p>
+                    </div>
+                  </div>
+
+                  {/* Customer & Job Info */}
+                  <div className="grid grid-cols-2 gap-4 text-xs mb-6 border border-gray-300 p-3 rounded">
+                    <div>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="font-bold text-gray-500 uppercase text-[10px]">Customer / Contractor:</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="font-semibold text-sm text-black">BuildCo Construction Ltd</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="font-bold text-gray-500 uppercase text-[10px] mt-2">Delivery Location / Address:</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="text-gray-800">124 Main Street, Commercial Zone</p>
+                    </div>
+                    <div>
+                      <p><span contentEditable="true" suppressContentEditableWarning={true} className="font-bold text-gray-600">Dispatch Time:</span> <span contentEditable="true" suppressContentEditableWarning={true}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></p>
+                      <p><span contentEditable="true" suppressContentEditableWarning={true} className="font-bold text-gray-600">Truck No:</span> <span contentEditable="true" suppressContentEditableWarning={true}>TR-14</span></p>
+                      <p><span contentEditable="true" suppressContentEditableWarning={true} className="font-bold text-gray-600">Driver:</span> <span contentEditable="true" suppressContentEditableWarning={true}>J. Doe</span></p>
+                      <p><span contentEditable="true" suppressContentEditableWarning={true} className="font-bold text-gray-600">Target Slump:</span> <span contentEditable="true" suppressContentEditableWarning={true}>100 mm</span></p>
+                    </div>
+                  </div>
+
+                  {/* Mix Specs */}
+                  <div className="mb-6">
+                    <h3 contentEditable="true" suppressContentEditableWarning={true} className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2 border-b border-gray-200 pb-1">Load & Mix Details</h3>
+                    <table className="w-full text-xs text-left border-collapse mb-4">
+                      <thead>
+                        <tr className="border-b border-gray-300 font-bold bg-gray-50">
+                          <th contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1">Mix Design</th>
+                          <th contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-center">Load Volume</th>
+                          <th contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-center">Est. Discharge Temp</th>
+                          <th contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-right">Unit Density</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-gray-200 font-mono">
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 font-sans font-semibold">{currentMix.name}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-center font-bold text-sm">{loadVolume} m³</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-center">{calculations.estimatedTemp.toFixed(1)}°C</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-right">{Math.round(calculations.wetUnitWeight)} kg/m³</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <h3 contentEditable="true" suppressContentEditableWarning={true} className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2 border-b border-gray-200 pb-1">Batched Scale Weights (Actual Target)</h3>
+                    <table className="w-full text-xs text-left border-collapse font-mono">
+                      <thead>
+                        <tr className="border-b border-gray-300 font-sans text-[10px] text-gray-500 uppercase">
+                          <th contentEditable="true" suppressContentEditableWarning={true} className="py-1">Material</th>
+                          <th contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">Design Dry (kg)</th>
+                          <th contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">Moisture Adjustment</th>
+                          <th contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">Batched Scale Weight</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        <tr>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans">Cement Powder</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{Math.round(calculations.baseCement)}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">0 %</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{Math.round(calculations.baseCement)} kg</td>
+                        </tr>
+                        <tr>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans">Fine Aggregate (Sand)</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{Math.round(calculations.baseFineDry)}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">+{fineMoisture}%</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{Math.round(calculations.adjustedFineScale)} kg</td>
+                        </tr>
+                        <tr>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans">Coarse Aggregate (Stone)</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{Math.round(calculations.baseCoarseDry)}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">+{coarseMoisture}%</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{Math.round(calculations.adjustedCoarseScale)} kg</td>
+                        </tr>
+                        <tr>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans">Net Batch Water</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{Math.round(calculations.baseWaterDesign)}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">-{Math.round(calculations.totalFreeWater)} L (Free H₂O)</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{Math.round(calculations.netWaterScale)} L</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Signatures & Instructions */}
+                  <div className="mt-8 pt-4 border-t-2 border-gray-300 grid grid-cols-2 gap-8 text-[11px]">
+                    <div>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="font-bold mb-6">Plant Operator Signature:</p>
+                      <div className="border-b border-black w-3/4"></div>
+                    </div>
+                    <div>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="font-bold mb-6">Site Customer Acceptance Signature:</p>
+                      <div className="border-b border-black w-3/4"></div>
+                      <p contentEditable="true" suppressContentEditableWarning={true} className="text-[9px] text-gray-500 mt-1">Received in good condition. Additional site water added voids warranty.</p>
+                    </div>
+                  </div>
+
+                  {/* Dedicated On-Ticket Print Button (Hidden during print) */}
+                  <div className="no-print mt-6 pt-4 border-t border-slate-200 flex justify-end space-x-3">
+                    <button
+                      onClick={() => setShowTicketModal(false)}
+                      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-semibold transition-all"
+                    >
+                      Close Window
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-all flex items-center space-x-1 shadow-md"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                      <span>Print Ticket</span>
+                    </button>
+                  </div>
+
                 </div>
 
               </div>
             </div>
           )}
+
         </div>
       );
     }
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<BatchCraftApp />);
+    root.render(<App />);
   </script>
 </body>
 </html>
