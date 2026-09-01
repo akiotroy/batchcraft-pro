@@ -118,7 +118,9 @@
       const [newMixName, setNewMixName] = useState('');
       const [newMixCement, setNewMixCement] = useState(350);
       const [newMixFine, setNewMixFine] = useState(800);
-      const [newMixCoarse, setNewMixCoarse] = useState(1000);
+      const [newMixCoarse1, setNewMixCoarse1] = useState(500);
+      const [newMixCoarse2, setNewMixCoarse2] = useState(500);
+      const [newMixAdmixture, setNewMixAdmixture] = useState(0);
       const [newMixWater, setNewMixWater] = useState(175);
 
       // Global Batch Configuration State
@@ -190,12 +192,18 @@
         if (!newMixName.trim()) return;
         const c = parseFloat(newMixCement) || 0;
         const w = parseFloat(newMixWater) || 0;
+        const c1 = parseFloat(newMixCoarse1) || 0;
+        const c2 = parseFloat(newMixCoarse2) || 0;
+        const adm = parseFloat(newMixAdmixture) || 0;
         const newMix = {
           id: 'custom-' + Date.now(),
           name: newMixName,
           cement: c,
           fineAgg: parseFloat(newMixFine) || 0,
-          coarseAgg: parseFloat(newMixCoarse) || 0,
+          coarseAgg1: c1,
+          coarseAgg2: c2,
+          coarseAgg: c1 + c2,
+          admixture: adm,
           water: w,
           wRatio: c > 0 ? parseFloat((w / c).toFixed(2)) : 0
         };
@@ -242,7 +250,7 @@
 
         const baseCement = currentMix.cement * loadVolume;
         const baseFineDry = currentMix.fineAgg * loadVolume;
-        const baseCoarseDry = currentMix.coarseAgg * loadVolume;
+        const baseCoarseDry = (currentMix.coarseAgg !== undefined ? currentMix.coarseAgg : (currentMix.coarseAgg1 + currentMix.coarseAgg2)) * loadVolume;
         const baseWaterDesign = currentMix.water * loadVolume;
 
         const adjustedFineScale = baseFineDry * (1 + fineMoisture / 100);
@@ -490,7 +498,7 @@
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="text-md font-bold text-amber-400">Stone / Coarse Aggregate</h3>
                       <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2 py-1 rounded">
-                        Dry Base: {formatMass(currentMix.coarseAgg * loadVolume).toLocaleString()} {massUnit}
+                        Dry Base: {formatMass((currentMix.coarseAgg !== undefined ? currentMix.coarseAgg : (currentMix.coarseAgg1 + currentMix.coarseAgg2)) * loadVolume).toLocaleString()} {massUnit}
                       </span>
                     </div>
 
@@ -864,7 +872,15 @@
                               <div>Cement: <span className="font-bold">{formatMass(mix.cement)} {massUnit}</span></div>
                               <div>Water: <span className="font-bold">{formatLiquid(mix.water)} {liquidUnit}</span></div>
                               <div>Fine Agg: <span className="font-bold">{formatMass(mix.fineAgg)} {massUnit}</span></div>
-                              <div>Coarse Agg: <span className="font-bold">{formatMass(mix.coarseAgg)} {massUnit}</span></div>
+                              {mix.coarseAgg1 !== undefined ? (
+                                <>
+                                  <div>Coarse Agg 1: <span className="font-bold">{formatMass(mix.coarseAgg1)} {massUnit}</span></div>
+                                  <div>Coarse Agg 2: <span className="font-bold">{formatMass(mix.coarseAgg2)} {massUnit}</span></div>
+                                  <div>Admixture: <span className="font-bold">{formatLiquid(mix.admixture)} {liquidUnit}</span></div>
+                                </>
+                              ) : (
+                                <div>Coarse Agg: <span className="font-bold">{formatMass(mix.coarseAgg)} {massUnit}</span></div>
+                              )}
                             </div>
 
                             <div className="flex justify-between items-center pt-3 border-t border-slate-800/80">
@@ -959,11 +975,29 @@
                       />
                     </div>
                     <div>
-                      <label className="text-slate-300 block font-sans mb-1 font-semibold">Coarse Agg ({massUnit}/m³)</label>
+                      <label className="text-slate-300 block font-sans mb-1 font-semibold">Coarse Agg 1 ({massUnit}/m³)</label>
                       <input
                         type="number"
-                        value={newMixCoarse}
-                        onChange={(e) => setNewMixCoarse(e.target.value)}
+                        value={newMixCoarse1}
+                        onChange={(e) => setNewMixCoarse1(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-300 block font-sans mb-1 font-semibold">Coarse Agg 2 ({massUnit}/m³)</label>
+                      <input
+                        type="number"
+                        value={newMixCoarse2}
+                        onChange={(e) => setNewMixCoarse2(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-slate-300 block font-sans mb-1 font-semibold">Admixture ({liquidUnit}/m³)</label>
+                      <input
+                        type="number"
+                        value={newMixAdmixture}
+                        onChange={(e) => setNewMixAdmixture(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-100"
                       />
                     </div>
@@ -1243,5 +1277,6 @@
   </script>
 </body>
 </html>
+
 
 
