@@ -20,29 +20,63 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Print Stylesheet - Ensures only the delivery ticket prints cleanly */
+    /* Print Stylesheet - Corrects blank page issue and formats to exact A4 size */
     @media print {
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+      html, body {
+        background: #fff !important;
+        color: #000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 210mm;
+        height: 297mm;
+        overflow: visible !important;
+      }
       body * {
-        visibility: hidden;
+        visibility: hidden !important;
       }
       #printable-delivery-note, #printable-delivery-note * {
-        visibility: visible;
+        visibility: visible !important;
       }
       #printable-delivery-note {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+        position: fixed !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 210mm !important;
+        min-height: 297mm !important;
+        box-sizing: border-box !important;
+        padding: 15mm !important;
+        margin: 0 !important;
         background-color: white !important;
         color: black !important;
-        padding: 0 !important;
-        margin: 0 !important;
         box-shadow: none !important;
         border: none !important;
+        border-radius: 0 !important;
+        z-index: 99999 !important;
       }
       .no-print {
         display: none !important;
       }
+      [contenteditable="true"] {
+        outline: none !important;
+        border: none !important;
+      }
+    }
+
+    /* Subtle hover effect for inline editable text elements on screen */
+    [contenteditable="true"]:hover {
+      background-color: rgba(243, 244, 246, 0.8);
+      outline: 1px dashed #9ca3af;
+      border-radius: 2px;
+      cursor: text;
+    }
+    [contenteditable="true"]:focus {
+      background-color: #ffffff;
+      outline: 2px solid #3b82f6;
+      border-radius: 2px;
     }
   </style>
 </head>
@@ -137,7 +171,7 @@
         return PRESET_MIXES.find(m => m.id === selectedMixId) || PRESET_MIXES[0];
       }, [selectedMixId]);
 
-      // Calculations Engine (Internal calculations maintained in standard Metric, formatted dynamically)
+      // Calculations Engine
       const calculations = useMemo(() => {
         const fineFreeMoisturePct = fineMoisture - fineAbs;
         const coarseFreeMoisturePct = coarseMoisture - coarseAbs;
@@ -793,7 +827,7 @@
                   </div>
                 </div>
 
-                {/* ACTUAL PRINTABLE TICKET CONTENT */}
+                {/* ACTUAL PRINTABLE TICKET CONTENT - DIRECTLY EDITABLE INLINE */}
                 <div id="printable-delivery-note" className="relative bg-white text-black p-8 rounded-lg shadow-inner font-sans border border-slate-200">
                   
                   {/* Top-Right Close Button inside Ticket Header */}
@@ -810,13 +844,13 @@
                   {/* Ticket Header */}
                   <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-4 pr-6">
                     <div>
-                      <h1 className="text-2xl font-black tracking-tight text-black uppercase">{companyName}</h1>
-                      <p className="text-xs text-gray-600">{plantDetails}</p>
-                      <p className="text-xs text-gray-600">{companyTagline}</p>
+                      <h1 contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setCompanyName(e.target.innerText)} className="text-2xl font-black tracking-tight text-black uppercase">{companyName}</h1>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setPlantDetails(e.target.innerText)} className="text-xs text-gray-600">{plantDetails}</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setCompanyTagline(e.target.innerText)} className="text-xs text-gray-600">{companyTagline}</p>
                     </div>
                     <div className="text-right">
-                      <h2 className="text-xl font-bold text-black">{ticketTitle}</h2>
-                      <p className="text-xs font-mono font-bold text-gray-800">TICKET #: {ticketNo}</p>
+                      <h2 contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setTicketTitle(e.target.innerText)} className="text-xl font-bold text-black">{ticketTitle}</h2>
+                      <p className="text-xs font-mono font-bold text-gray-800">TICKET #: <span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setTicketNo(e.target.innerText)}>{ticketNo}</span></p>
                       <p className="text-xs text-gray-600">Date: {new Date().toLocaleDateString()}</p>
                     </div>
                   </div>
@@ -824,16 +858,16 @@
                   {/* Customer & Job Info */}
                   <div className="grid grid-cols-2 gap-4 text-xs mb-6 border border-gray-300 p-3 rounded">
                     <div>
-                      <p className="font-bold text-gray-500 uppercase text-[10px]">{labelCustomer}</p>
-                      <p className="font-semibold text-sm text-black">{customer}</p>
-                      <p className="font-bold text-gray-500 uppercase text-[10px] mt-2">{labelAddress}</p>
-                      <p className="text-gray-800">{siteAddress}</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelCustomer(e.target.innerText)} className="font-bold text-gray-500 uppercase text-[10px]">{labelCustomer}</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setCustomer(e.target.innerText)} className="font-semibold text-sm text-black">{customer}</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelAddress(e.target.innerText)} className="font-bold text-gray-500 uppercase text-[10px] mt-2">{labelAddress}</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setSiteAddress(e.target.innerText)} className="text-gray-800">{siteAddress}</p>
                     </div>
                     <div>
-                      <p><span className="font-bold text-gray-600">{labelDispatch}</span> {timeDispatched}</p>
-                      <p><span className="font-bold text-gray-600">{labelTruck}</span> {truckNo}</p>
-                      <p><span className="font-bold text-gray-600">{labelDriver}</span> {driver}</p>
-                      <p><span className="font-bold text-gray-600">{labelSlump}</span> {slumpTarget}</p>
+                      <p><span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelDispatch(e.target.innerText)} className="font-bold text-gray-600">{labelDispatch}</span> <span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setTimeDispatched(e.target.innerText)}>{timeDispatched}</span></p>
+                      <p><span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelTruck(e.target.innerText)} className="font-bold text-gray-600">{labelTruck}</span> <span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setTruckNo(e.target.innerText)}>{truckNo}</span></p>
+                      <p><span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelDriver(e.target.innerText)} className="font-bold text-gray-600">{labelDriver}</span> <span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setDriver(e.target.innerText)}>{driver}</span></p>
+                      <p><span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelSlump(e.target.innerText)} className="font-bold text-gray-600">{labelSlump}</span> <span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setSlumpTarget(e.target.innerText)}>{slumpTarget}</span></p>
                     </div>
                   </div>
 
@@ -851,10 +885,10 @@
                       </thead>
                       <tbody>
                         <tr className="border-b border-gray-200 font-mono">
-                          <td className="py-2 px-1 font-sans font-semibold">{currentMix.name}</td>
-                          <td className="py-2 px-1 text-center font-bold text-sm">{formatVol(loadVolume)} {volUnit}</td>
-                          <td className="py-2 px-1 text-center">{formatTemp(calculations.estimatedTempC)}{tempUnit}</td>
-                          <td className="py-2 px-1 text-right">{formatDensity(calculations.wetUnitWeightKgM3)} {densityUnit}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 font-sans font-semibold">{currentMix.name}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-center font-bold text-sm">{formatVol(loadVolume)} {volUnit}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-center">{formatTemp(calculations.estimatedTempC)}{tempUnit}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-2 px-1 text-right">{formatDensity(calculations.wetUnitWeightKgM3)} {densityUnit}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -871,43 +905,43 @@
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         <tr>
-                          <td className="py-1 font-sans">Cement Powder</td>
-                          <td className="py-1 text-right">{formatMass(calculations.baseCement).toLocaleString()}</td>
-                          <td className="py-1 text-right">0 %</td>
-                          <td className="py-1 text-right font-bold">{formatMass(calculations.baseCement).toLocaleString()} {massUnit}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans">Cement Powder</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{formatMass(calculations.baseCement).toLocaleString()}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">0 %</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{formatMass(calculations.baseCement).toLocaleString()} {massUnit}</td>
                         </tr>
                         <tr>
-                          <td className="py-1 font-sans">Fine Aggregate (Sand)</td>
-                          <td className="py-1 text-right">{formatMass(calculations.baseFineDry).toLocaleString()}</td>
-                          <td className="py-1 text-right">+{fineMoisture}%</td>
-                          <td className="py-1 text-right font-bold">{formatMass(calculations.adjustedFineScale).toLocaleString()} {massUnit}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans">Fine Aggregate (Sand)</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{formatMass(calculations.baseFineDry).toLocaleString()}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">+{fineMoisture}%</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{formatMass(calculations.adjustedFineScale).toLocaleString()} {massUnit}</td>
                         </tr>
                         <tr>
-                          <td className="py-1 font-sans">Coarse Aggregate (Stone)</td>
-                          <td className="py-1 text-right">{formatMass(calculations.baseCoarseDry).toLocaleString()}</td>
-                          <td className="py-1 text-right">+{coarseMoisture}%</td>
-                          <td className="py-1 text-right font-bold">{formatMass(calculations.adjustedCoarseScale).toLocaleString()} {massUnit}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans">Coarse Aggregate (Stone)</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{formatMass(calculations.baseCoarseDry).toLocaleString()}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">+{coarseMoisture}%</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{formatMass(calculations.adjustedCoarseScale).toLocaleString()} {massUnit}</td>
                         </tr>
                         <tr>
-                          <td className="py-1 font-sans">Net Batch Water</td>
-                          <td className="py-1 text-right">{formatLiquid(calculations.baseWaterDesign).toLocaleString()}</td>
-                          <td className="py-1 text-right">-{formatLiquid(calculations.totalFreeWater)} {liquidUnit} (Free H₂O)</td>
-                          <td className="py-1 text-right font-bold">{formatLiquid(calculations.netWaterScale).toLocaleString()} {liquidUnit}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 font-sans">Net Batch Water</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">{formatLiquid(calculations.baseWaterDesign).toLocaleString()}</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right">-{formatLiquid(calculations.totalFreeWater)} {liquidUnit} (Free H₂O)</td>
+                          <td contentEditable="true" suppressContentEditableWarning={true} className="py-1 text-right font-bold">{formatLiquid(calculations.netWaterScale).toLocaleString()} {liquidUnit}</td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
 
-                  {/* Signatures & In-Ticket Print Action */}
+                  {/* Signatures & Legal Terms */}
                   <div className="mt-8 pt-4 border-t-2 border-gray-300 grid grid-cols-2 gap-8 text-[11px]">
                     <div>
-                      <p className="font-bold mb-6">{labelPlantSig}</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelPlantSig(e.target.innerText)} className="font-bold mb-6">{labelPlantSig}</p>
                       <div className="border-b border-black w-3/4"></div>
                     </div>
                     <div>
-                      <p className="font-bold mb-6">{labelCustSig}</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelCustSig(e.target.innerText)} className="font-bold mb-6">{labelCustSig}</p>
                       <div className="border-b border-black w-3/4"></div>
-                      <p className="text-[9px] text-gray-500 mt-1">{disclaimerText}</p>
+                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setDisclaimerText(e.target.innerText)} className="text-[9px] text-gray-500 mt-1">{disclaimerText}</p>
                     </div>
                   </div>
 
@@ -943,3 +977,4 @@
   </script>
 </body>
 </html>
+
