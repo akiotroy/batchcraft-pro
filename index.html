@@ -163,8 +163,10 @@
       const [labelTruck, setLabelTruck] = useState('Truck No:');
       const [labelDriver, setLabelDriver] = useState('Driver:');
       const [labelSlump, setLabelSlump] = useState('Target Slump:');
-      const [labelPlantSig, setLabelPlantSig] = useState('Plant Operator Signature:');
+      const [labelDriverSig, setLabelDriverSig] = useState('Driver Signature:');
       const [labelCustSig, setLabelCustSig] = useState('Site Customer Acceptance Signature:');
+      const [labelWaterAdded, setLabelWaterAdded] = useState('If water added on site:');
+      const [labelWaterAmount, setLabelWaterAmount] = useState('Water added:');
       const [disclaimerText, setDisclaimerText] = useState('Received in good condition. Additional site water added voids warranty.');
 
       // Dynamic Unit Labels
@@ -1113,12 +1115,20 @@
                   {/* Customizable Labels & Legal Terms */}
                   <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800">
                     <div>
-                      <label className="text-slate-400 block mb-1">Operator Signature Label</label>
-                      <input type="text" value={labelPlantSig} onChange={(e) => setLabelPlantSig(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100" />
+                      <label className="text-slate-400 block mb-1">Driver Signature Label</label>
+                      <input type="text" value={labelDriverSig} onChange={(e) => setLabelDriverSig(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100" />
                     </div>
                     <div>
                       <label className="text-slate-400 block mb-1">Customer Signature Label</label>
                       <input type="text" value={labelCustSig} onChange={(e) => setLabelCustSig(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100" />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1">Water Added Label</label>
+                      <input type="text" value={labelWaterAdded} onChange={(e) => setLabelWaterAdded(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100" />
+                    </div>
+                    <div>
+                      <label className="text-slate-400 block mb-1">Water Amount Label</label>
+                      <input type="text" value={labelWaterAmount} onChange={(e) => setLabelWaterAmount(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-slate-100" />
                     </div>
                     <div className="col-span-2">
                       <label className="text-slate-400 block mb-1">Ticket Disclaimer / Terms</label>
@@ -1234,10 +1244,23 @@
 
                   {/* Signatures & Legal Terms */}
                   <div className="mt-8 pt-4 border-t-2 border-gray-300 grid grid-cols-2 gap-8 text-[11px]">
-                    <div>
-                      <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelPlantSig(e.target.innerText)} className="font-bold mb-6">{labelPlantSig}</p>
-                      <div className="border-b border-black w-3/4"></div>
+                    <div className="space-y-6">
+                      <div>
+                        <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelDriverSig(e.target.innerText)} className="font-bold mb-6">{labelDriverSig}</p>
+                        <div className="border-b border-black w-3/4"></div>
+                      </div>
+                      
+                      <div className="pt-2">
+                        <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelWaterAdded(e.target.innerText)} className="font-bold mb-2">{labelWaterAdded}</p>
+                        <div className="flex items-center space-x-2 mb-4">
+                          <span contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelWaterAmount(e.target.innerText)} className="font-semibold text-gray-700">{labelWaterAmount}</span>
+                          <div className="border-b border-black w-1/2"></div>
+                        </div>
+                        <div className="border-b border-black w-3/4"></div>
+                        <p className="text-[9px] text-gray-500 mt-1">Signature for water added</p>
+                      </div>
                     </div>
+
                     <div>
                       <p contentEditable="true" suppressContentEditableWarning={true} onBlur={(e) => setLabelCustSig(e.target.innerText)} className="font-bold mb-6">{labelCustSig}</p>
                       <div className="border-b border-black w-3/4"></div>
@@ -1277,6 +1300,7 @@
   </script>
 </body>
 </html>
+
 
 
 
