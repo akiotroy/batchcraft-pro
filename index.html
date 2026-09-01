@@ -23,12 +23,10 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Target editable elements for clear user interaction */
     input[type=range] {
       accent-color: #f59e0b;
     }
 
-    /* Dedicated CSS Print Engine Override */
     @media print {
       body > div:not(#print-root) {
         display: none !important;
@@ -86,18 +84,19 @@
     const { useState } = React;
 
     function App() {
-      const [activeTab, setActiveTab] = useState('trim');
       const [showModal, setShowModal] = useState(false);
-      const [unitSystem, setUnitSystem] = useState('metric'); // 'metric' or 'imperial'
+      
+      // Category Unit States
+      const [volumeUnit, setVolumeUnit] = useState('m3'); // 'm3' or 'yd3'
+      const [massUnit, setMassUnit] = useState('kg');     // 'kg' or 'lbs'
+      const [liquidUnit, setLiquidUnit] = useState('L');   // 'L' or 'gal'
       
       // Base Batch state parameters (Metric Defaults)
-      const [truckVolumeMetric, setTruckVolumeMetric] = useState(6.0); // m3
+      const [truckVolumeMetric, setTruckVolumeMetric] = useState(6.0); // m3 base
       const [sandMoisture, setSandMoisture] = useState(4.5);
       const [sandAbs, setSandAbs] = useState(1.0);
       const [stoneMoisture, setStoneMoisture] = useState(1.8);
       const [stoneAbs, setStoneAbs] = useState(0.5);
-
-      const isMetric = unitSystem === 'metric';
 
       // Base design specs (Metric 1m3)
       const baseCementMetric = 350; // kg/m3
@@ -105,38 +104,57 @@
       const baseStoneMetric = 1040; // kg/m3
       const baseWaterMetric = 175;  // L/m3
 
-      // Conversion constants
+      // Unit Conversion Factors
       const KG_TO_LBS = 2.20462;
       const M3_TO_YD3 = 1.30795;
       const L_TO_GAL = 0.264172;
 
-      // Current Volume
-      const volumeVal = isMetric ? truckVolumeMetric : (truckVolumeMetric * M3_TO_YD3);
-      const volUnit = isMetric ? 'm³' : 'yd³';
-      const massUnit = isMetric ? 'kg' : 'lbs';
-      const liquidUnit = isMetric ? 'L' : 'gal';
-      const densityUnit = isMetric ? 'kg/m³' : 'lbs/yd³';
+      // Category unit selections
+      const isVolMetric = volumeUnit === 'm3';
+      const isMassMetric = massUnit === 'kg';
+      const isLiqMetric = liquidUnit === 'L';
 
-      // Dynamic Batch base calculations based on selected unit
-      const totalDrySand = (baseSandMetric * truckVolumeMetric) * (isMetric ? 1 : KG_TO_LBS);
-      const totalDryStone = (baseStoneMetric * truckVolumeMetric) * (isMetric ? 1 : KG_TO_LBS);
-      const totalDryWater = (baseWaterMetric * truckVolumeMetric) * (isMetric ? 1 : L_TO_GAL);
-      const totalDryCement = (baseCementMetric * truckVolumeMetric) * (isMetric ? 1 : KG_TO_LBS);
+      // Preset Master Selector Handler
+      const handleGlobalPresetChange = (preset) => {
+        if (preset === 'metric_all') {
+          setVolumeUnit('m3');
+          setMassUnit('kg');
+          setLiquidUnit('L');
+        } else if (preset === 'imperial_all') {
+          setVolumeUnit('yd3');
+          setMassUnit('lbs');
+          setLiquidUnit('gal');
+        }
+      };
+
+      // Calculate displayed values based on chosen category unit
+      const displayedVolume = isVolMetric ? truckVolumeMetric : (truckVolumeMetric * M3_TO_YD3);
+      
+      const totalDrySand = (baseSandMetric * truckVolumeMetric) * (isMassMetric ? 1 : KG_TO_LBS);
+      const totalDryStone = (baseStoneMetric * truckVolumeMetric) * (isMassMetric ? 1 : KG_TO_LBS);
+      const totalDryCement = (baseCementMetric * truckVolumeMetric) * (isMassMetric ? 1 : KG_TO_LBS);
+      const totalDryWater = (baseWaterMetric * truckVolumeMetric) * (isLiqMetric ? 1 : L_TO_GAL);
 
       // Free moisture calculations
       const sandFreeWater = (totalDrySand * (sandMoisture - sandAbs)) / 100;
       const stoneFreeWater = (totalDryStone * (stoneMoisture - stoneAbs)) / 100;
-      const totalFreeWater = sandFreeWater + stoneFreeWater;
+
+      // Free liquid conversions for water calculations
+      const sandFreeWaterLiq = ( (baseSandMetric * truckVolumeMetric * (sandMoisture - sandAbs)) / 100 ) * (isLiqMetric ? 1 : L_TO_GAL);
+      const stoneFreeWaterLiq = ( (baseStoneMetric * truckVolumeMetric * (stoneMoisture - stoneAbs)) / 100 ) * (isLiqMetric ? 1 : L_TO_GAL);
+      const totalFreeWaterLiq = sandFreeWaterLiq + stoneFreeWaterLiq;
 
       // Trimmed Targets
       const finalSandTarget = totalDrySand + sandFreeWater;
       const finalStoneTarget = totalDryStone + stoneFreeWater;
-      const finalWaterTarget = totalDryWater - totalFreeWater;
+      const finalWaterTarget = totalDryWater - totalFreeWaterLiq;
 
       // Yield & Density calculations
-      const estimatedDensity = isMetric ? 2398 : Math.round(2398 * KG_TO_LBS / M3_TO_YD3); // ~4041 lbs/yd3
+      const densityVal = (2398 * (isMassMetric ? 1 : KG_TO_LBS)) / (isVolMetric ? 1 : M3_TO_YD3);
+      const densityLabel = `${massUnit}/${volumeUnit}`;
+
       const totalBatchMassKg = (baseCementMetric + baseSandMetric + baseStoneMetric + baseWaterMetric) * truckVolumeMetric;
-      const calculatedYield = ((totalBatchMassKg / 2398) * (isMetric ? 1 : M3_TO_YD3)).toFixed(2);
+      const calculatedYield = ((totalBatchMassKg / 2398) * (isVolMetric ? 1 : M3_TO_YD3)).toFixed(2);
 
       const triggerPrint = () => {
         window.print();
@@ -161,22 +179,6 @@
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {/* Unit System Switcher */}
-              <div className="bg-gray-900 border border-gray-800 p-1 rounded-lg flex items-center gap-1 text-xs font-semibold">
-                <button 
-                  onClick={() => setUnitSystem('metric')}
-                  className={`px-3 py-1.5 rounded-md transition ${isMetric ? 'bg-amber-500 text-slate-950' : 'text-gray-400 hover:text-white'}`}
-                >
-                  Metric (kg / m³)
-                </button>
-                <button 
-                  onClick={() => setUnitSystem('imperial')}
-                  className={`px-3 py-1.5 rounded-md transition ${!isMetric ? 'bg-amber-500 text-slate-950' : 'text-gray-400 hover:text-white'}`}
-                >
-                  US / Imperial (lbs / yd³)
-                </button>
-              </div>
-
               <button 
                 onClick={() => setShowModal(true)}
                 className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition"
@@ -187,15 +189,85 @@
             </div>
           </header>
 
+          {/* UNIT CATEGORY DROPDOWN CONTROL PANEL */}
+          <div className="bg-[#121826] border border-gray-800 rounded-xl p-4 mb-8">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">Unit Measurement Configurator</h2>
+              </div>
+
+              {/* Master Presets & Category Dropdowns */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full lg:w-auto">
+                
+                {/* Master Switch Preset */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Global System</label>
+                  <select 
+                    onChange={(e) => handleGlobalPresetChange(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 text-amber-400 font-semibold rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
+                    defaultValue="metric_all"
+                  >
+                    <option value="custom">Custom Configuration</option>
+                    <option value="metric_all">All Metric (kg, m³, L)</option>
+                    <option value="imperial_all">All Imperial (lbs, yd³, gal)</option>
+                  </select>
+                </div>
+
+                {/* Truck Volume Dropdown */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Volume Unit</label>
+                  <select 
+                    value={volumeUnit}
+                    onChange={(e) => setVolumeUnit(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 text-white font-medium rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="m3">Cubic Meters (m³)</option>
+                    <option value="yd3">Cubic Yards (yd³)</option>
+                  </select>
+                </div>
+
+                {/* Mass / Aggregate Dropdown */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Mass & Weight</label>
+                  <select 
+                    value={massUnit}
+                    onChange={(e) => setMassUnit(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 text-white font-medium rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="kg">Kilograms (kg)</option>
+                    <option value="lbs">Pounds (lbs)</option>
+                  </select>
+                </div>
+
+                {/* Liquid / Water Dropdown */}
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">Water & Liquids</label>
+                  <select 
+                    value={liquidUnit}
+                    onChange={(e) => setLiquidUnit(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 text-white font-medium rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="L">Liters (L)</option>
+                    <option value="gal">US Gallons (gal)</option>
+                  </select>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
           {/* Key Metrics Banner */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-[#121826] border border-gray-800 rounded-xl p-5">
               <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Active Mix Design</span>
               <div className="mt-2 text-lg font-bold text-amber-400">
                 <select className="bg-gray-900 border border-gray-700 text-amber-400 font-bold rounded px-3 py-1.5 w-full focus:outline-none focus:border-amber-500">
-                  <option>{isMetric ? '30 MPa Standard Structural (w/c: 0.5)' : '4000 PSI Standard Structural (w/c: 0.5)'}</option>
-                  <option>{isMetric ? '25 MPa Foundation Mix' : '3000 PSI Foundation Mix'}</option>
-                  <option>{isMetric ? '40 MPa Pavement High-Early' : '5000 PSI Pavement High-Early'}</option>
+                  <option>30 MPa / 4000 PSI Standard Structural (w/c: 0.5)</option>
+                  <option>25 MPa / 3000 PSI Foundation Mix</option>
+                  <option>40 MPa / 5000 PSI Pavement High-Early</option>
                 </select>
               </div>
             </div>
@@ -203,7 +275,7 @@
             <div className="bg-[#121826] border border-gray-800 rounded-xl p-5">
               <div className="flex justify-between items-center">
                 <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Batch Truck Volume</span>
-                <span className="text-amber-400 font-bold font-mono text-lg">{volumeVal.toFixed(1)} {volUnit}</span>
+                <span className="text-amber-400 font-bold font-mono text-lg">{displayedVolume.toFixed(1)} {volumeUnit}</span>
               </div>
               <input 
                 type="range" 
@@ -215,20 +287,20 @@
                 className="w-full mt-3"
               />
               <div className="flex justify-between text-xs text-gray-500 mt-1 font-mono">
-                <span>{isMetric ? '1.0 m³' : '1.3 yd³'}</span>
-                <span>{isMetric ? '6.0 m³' : '7.8 yd³'}</span>
-                <span>{isMetric ? '12.0 m³' : '15.7 yd³'}</span>
+                <span>{isVolMetric ? '1.0 m³' : '1.3 yd³'}</span>
+                <span>{isVolMetric ? '6.0 m³' : '7.8 yd³'}</span>
+                <span>{isVolMetric ? '12.0 m³' : '15.7 yd³'}</span>
               </div>
             </div>
 
             <div className="bg-[#121826] border border-gray-800 rounded-xl p-5 flex justify-between items-center">
               <div>
                 <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Estimated Unit Density</span>
-                <div className="text-2xl font-bold font-mono text-white mt-1">{estimatedDensity.toLocaleString()} <span className="text-sm font-normal text-gray-400">{densityUnit}</span></div>
+                <div className="text-2xl font-bold font-mono text-white mt-1">{Math.round(densityVal).toLocaleString()} <span className="text-sm font-normal text-gray-400">{densityLabel}</span></div>
               </div>
               <div className="text-right">
                 <span className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Calculated Vol. Yield</span>
-                <div className="text-2xl font-bold font-mono text-emerald-400 mt-1">{calculatedYield} <span className="text-sm font-normal text-gray-400">{volUnit}</span></div>
+                <div className="text-2xl font-bold font-mono text-emerald-400 mt-1">{calculatedYield} <span className="text-sm font-normal text-gray-400">{volumeUnit}</span></div>
               </div>
             </div>
           </div>
@@ -281,7 +353,7 @@
 
                   <div className="pt-2 border-t border-gray-800 flex justify-between text-xs">
                     <span className="text-gray-400">Calculated Free Water:</span>
-                    <span className="font-mono text-amber-400 font-semibold">+{sandFreeWater.toFixed(1)} {isMetric ? 'Liters' : 'Gallons'}</span>
+                    <span className="font-mono text-amber-400 font-semibold">+{sandFreeWaterLiq.toFixed(1)} {liquidUnit}</span>
                   </div>
                 </div>
               </div>
@@ -328,7 +400,7 @@
 
                   <div className="pt-2 border-t border-gray-800 flex justify-between text-xs">
                     <span className="text-gray-400">Calculated Free Water:</span>
-                    <span className="font-mono text-amber-400 font-semibold">+{stoneFreeWater.toFixed(1)} {isMetric ? 'Liters' : 'Gallons'}</span>
+                    <span className="font-mono text-amber-400 font-semibold">+{stoneFreeWaterLiq.toFixed(1)} {liquidUnit}</span>
                   </div>
                 </div>
               </div>
@@ -381,7 +453,7 @@
                         <tr>
                           <td className="py-3.5 font-sans font-medium text-white">Batch Water (Net)</td>
                           <td className="py-3.5 text-right text-gray-400">{Math.round(totalDryWater).toLocaleString()} {liquidUnit}</td>
-                          <td className="py-3.5 text-right text-rose-400">-{Math.round(totalFreeWater)} {liquidUnit}</td>
+                          <td className="py-3.5 text-right text-rose-400">-{Math.round(totalFreeWaterLiq)} {liquidUnit}</td>
                           <td className="py-3.5 text-right font-bold text-cyan-400">{Math.round(finalWaterTarget).toLocaleString()} {liquidUnit}</td>
                         </tr>
                       </tbody>
@@ -398,7 +470,7 @@
                     </div>
                   </div>
                   <div className="text-xl font-bold font-mono text-rose-400">
-                    -{Math.round(totalFreeWater)} <span className="text-sm font-normal">{isMetric ? 'Liters' : 'Gallons'}</span>
+                    -{Math.round(totalFreeWaterLiq)} <span className="text-sm font-normal">{liquidUnit === 'L' ? 'Liters' : 'Gallons'}</span>
                   </div>
                 </div>
 
@@ -436,14 +508,14 @@
                     </div>
                     <div className="border border-gray-200 p-3 rounded">
                       <div className="font-bold text-gray-700 uppercase mb-1">Batch Details</div>
-                      <div>Truck Load: <span className="font-bold text-gray-900 font-mono">{volumeVal.toFixed(1)} {volUnit}</span></div>
-                      <div>Mix Spec: <span className="font-bold text-gray-900">{isMetric ? '30 MPa Structural' : '4000 PSI Structural'}</span></div>
+                      <div>Truck Load: <span className="font-bold text-gray-900 font-mono">{displayedVolume.toFixed(1)} {volumeUnit}</span></div>
+                      <div>Mix Spec: <span className="font-bold text-gray-900">30 MPa / 4000 PSI Structural</span></div>
                     </div>
                   </div>
 
                   {/* Batch Weight Breakdown */}
                   <div>
-                    <div className="font-bold text-xs uppercase tracking-wider text-gray-700 mb-2">Batched Scale Weights (Trimmed - {isMetric ? 'Metric' : 'US Imperial'})</div>
+                    <div className="font-bold text-xs uppercase tracking-wider text-gray-700 mb-2">Batched Scale Weights (Trimmed)</div>
                     <table className="w-full text-xs text-left border border-gray-300 print-table">
                       <thead className="bg-gray-100 border-b border-gray-300">
                         <tr>
